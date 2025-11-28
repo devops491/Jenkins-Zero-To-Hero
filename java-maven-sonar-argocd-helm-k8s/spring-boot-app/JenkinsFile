@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         SONARQUBE = 'SonarQube'   // Name in Jenkins
-        MAVEN_HOME = tool 'Maven'      // Maven configured in Jenkins
+        MAVEN_HOME = tool 'Maven' // Maven configured in Jenkins
     }
 
     stages {
@@ -15,20 +15,26 @@ pipeline {
 
         stage('Build Maven Project') {
             steps {
-                sh "${MAVEN_HOME}/bin/mvn clean package -DskipTests"
+                dir('spring-boot-app') {
+                    sh "${MAVEN_HOME}/bin/mvn clean package -DskipTests"
+                }
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh "${MAVEN_HOME}/bin/mvn test"
+                dir('spring-boot-app') {
+                    sh "${MAVEN_HOME}/bin/mvn test"
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
+                dir('spring-boot-app') {
+                    withSonarQubeEnv('SonarQubeServer') {
+                        sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
+                    }
                 }
             }
         }

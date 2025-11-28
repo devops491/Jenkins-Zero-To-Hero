@@ -1,10 +1,19 @@
-apiVersion: argoproj.io/v1alpha1
-kind: ArgoCD
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: example-argocd
-  labels:
-    example: basic
+  name: my-app
 spec:
-  server:
-    service:
-      type: NodePort
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: durgesh296/my-app:latest
+        ports:
+        - containerPort: 9080

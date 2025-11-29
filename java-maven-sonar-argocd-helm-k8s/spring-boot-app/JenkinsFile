@@ -40,7 +40,10 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withSonarQubeEnv('SonarQubeServer') {
                         // Pass token safely without Groovy interpolation
-                        sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN"
+                        withSonarQubeEnv('SonarQubeServer') {
+                            sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.host.url=http://host.docker.internal:9000 -Dsonar.login=$SONAR_TOKEN"
+                        }
+
                     }
                 }
             }

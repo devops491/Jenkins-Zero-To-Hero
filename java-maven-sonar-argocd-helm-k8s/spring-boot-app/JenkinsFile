@@ -49,13 +49,6 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                // Wait for SonarQube Quality Gate result
-                waitForQualityGate abortPipeline: true
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {

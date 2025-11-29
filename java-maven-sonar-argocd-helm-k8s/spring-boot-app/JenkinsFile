@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQube'         // Jenkins SonarQube installation name
+        SONARQUBE = 'SonarQubeServer'         // Jenkins SonarQube installation name
         MAVEN_HOME = tool 'Maven'       // Maven installation in Jenkins
         DOCKER_IMAGE = 'abhishekf5/ultimate-cicd' // Standardized DockerHub repo
     }

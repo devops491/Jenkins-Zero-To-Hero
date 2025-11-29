@@ -72,12 +72,15 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-                    sh """
-                    sed -i 's|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' deployment.yml
-                    git add deployment.yml
-                    git commit -m 'Update image tag to build ${env.BUILD_NUMBER}' || echo 'No changes to commit'
-                    git push origin main || echo 'Push failed, skipping'
-                    """
+                    sh '''
+                        git config --global user.email "devops@celetel.com"
+                        git config --global user.name "devops491"
+
+                        sed -i 's|image:.*|image: durgesh296/spring-boot-app:${BUILD_NUMBER}|' deployment.yml
+                        git add deployment.yml
+                        git commit -m "Update image tag to build ${BUILD_NUMBER}" || echo "No changes to commit"
+                        git push https://<GITHUB_USERNAME>:<GITHUB_TOKEN>@github.com/devops491/Jenkins-Zero-To-Hero.git main || echo "Push failed, skipping"
+                    '''
                 }
             }
         }

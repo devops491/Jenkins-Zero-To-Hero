@@ -6,11 +6,6 @@ metadata:
     app: spring-boot-app
 spec:
   replicas: 2
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
-      maxSurge: 1
   selector:
     matchLabels:
       app: spring-boot-app
@@ -21,7 +16,7 @@ spec:
     spec:
       containers:
       - name: spring-boot-app
-        image: abhishekf5/ultimate-cicd:replaceImageTag
+        image: yourusername/spring-boot-app:replaceImageTag
         ports:
         - containerPort: 8080
         readinessProbe:

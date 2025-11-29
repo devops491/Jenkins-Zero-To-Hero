@@ -38,15 +38,10 @@ pipeline {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withSonarQubeEnv('SonarQubeServer') {
-                        sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
+                        sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
                     }
+                    waitForQualityGate abortPipeline: true
                 }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                waitForQualityGate abortPipeline: true
             }
         }
 

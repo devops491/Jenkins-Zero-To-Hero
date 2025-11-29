@@ -1,4 +1,4 @@
-pipeline {
+erpipeline {
     agent any
 
     environment {
@@ -34,10 +34,10 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('SonarQubeServer Analysis') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    withSonarQubeEnv('SonarQube') {
+                    withSonarQubeEnv('SonarQubeServer') {
                         sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
                     }
                 }

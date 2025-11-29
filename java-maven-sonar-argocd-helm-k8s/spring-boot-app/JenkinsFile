@@ -2,20 +2,25 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQube'   // Name in Jenkins
-        MAVEN_HOME = tool 'Maven' // Maven configured in Jenkins
+        SONARQUBE = 'SonarQube'         // Jenkins SonarQube installation name
+        MAVEN_HOME = tool 'Maven'       // Maven installation in Jenkins
+        DOCKER_IMAGE = 'abhishekf5/ultimate-cicd' // Standardized DockerHub repo
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/devops491/Jenkins-Zero-To-Hero.git'
+                checkout([$class: 'GitSCM',
+                    branches: [[name: 'main']],
+                    userRemoteConfigs: [[url: 'https://github.com/devops491/Jenkins-Zero-To-Hero.git']]
+                ])
             }
         }
 
         stage('Build Maven Project') {
             steps {
-                dir('spring-boot-app') {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     sh "${MAVEN_HOME}/bin/mvn clean package -DskipTests"
                 }
             }
@@ -23,7 +28,7 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
-                dir('spring-boot-app') {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     sh "${MAVEN_HOME}/bin/mvn test"
                 }
             }
@@ -31,8 +36,8 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                dir('spring-boot-app') {
-                    withSonarQubeEnv('SonarQubeServer') {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    withSonarQubeEnv('SonarQube') {
                         sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
                     }
                 }
@@ -47,26 +52,34 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    docker.build("durgesh296/my-app:${env.BUILD_NUMBER}")
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    script {
+                        docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
+                    }
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
-                    sh "docker tag durgesh296/my-app:${env.BUILD_NUMBER} durgesh296/my-app:${env.BUILD_NUMBER}"
-                    sh "docker push durgesh296/my-app:${env.BUILD_NUMBER}"
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
+                        sh "docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
+                    }
                 }
             }
         }
 
         stage('Update Kubernetes Manifest') {
             steps {
-                sh "sed -i 's|durgesh296/my-app:.*|durgesh296/my-app:${env.BUILD_NUMBER}|' k8s/deployment.yaml"
-                sh "git add k8s/deployment.yaml && git commit -m 'Update image tag to build ${env.BUILD_NUMBER}' || echo 'No changes to commit'"
-                sh "git push origin main || echo 'Push failed, skipping'"
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
+                    sh """
+                    sed -i 's|${DOCKER_IMAGE}:.*|${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' deployment.yml
+                    """
+                    sh "git add deployment.yml"
+                    sh "git commit -m 'Update image tag to build ${env.BUILD_NUMBER}' || echo 'No changes to commit'"
+                    sh "git push origin main || echo 'Push failed, skipping'"
+                }
             }
         }
 
@@ -75,7 +88,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'argocd-creds', usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
                     sh """
                     argocd login localhost:8082 --username $ARGO_USER --password $ARGO_PASS --insecure
-                    argocd app sync my-app
+                    argocd app sync spring-boot-app
                     """
                 }
             }
@@ -83,7 +96,7 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                sh "kubectl rollout status deployment/my-app"
+                sh "kubectl rollout status deployment/spring-boot-app"
             }
         }
     }

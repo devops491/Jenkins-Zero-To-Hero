@@ -6,6 +6,7 @@ pipeline {
         MAVEN_HOME  = tool 'Maven'                     // Maven installation name in Jenkins Global Tool Configuration
         PATH        = "${tool 'Maven'}/bin:${env.PATH}" // Add Maven to PATH
         DOCKER_IMAGE = 'durgesh296/spring-boot-app'   // Docker image name
+        GIT_CRED = credentials('github-creds')   // your PAT token credentials
     }
 
     stages {
@@ -72,18 +73,28 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
+        
+                    // Set Git identity inside container
                     sh '''
-                        git config --global user.email "devops@celetel.com"
-                        git config --global user.name "devops491"
-
-                        sed -i 's|image:.*|image: durgesh296/spring-boot-app:${BUILD_NUMBER}|' deployment.yml
+                        git config user.email "devops@celetel.com"
+                        git config user.name "devops491"
+                        sed -i "s|image:.*|image: durgesh296/spring-boot-app:${BUILD_NUMBER}|" deployment.yml
                         git add deployment.yml
                         git commit -m "Update image tag to build ${BUILD_NUMBER}" || echo "No changes to commit"
-                        git push https://<GITHUB_USERNAME>:<GITHUB_TOKEN>@github.com/devops491/Jenkins-Zero-To-Hero.git main || echo "Push failed, skipping"
                     '''
+        
+                    // Authenticated Git Push
+                    withCredentials([usernamePassword(credentialsId: 'github-creds',
+                                                      usernameVariable: 'GIT_USER',
+                                                      passwordVariable: 'GIT_TOKEN')]) {
+                        sh '''
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/devops491/Jenkins-Zero-To-Hero.git HEAD:main || echo "Push failed"
+                        '''
+                    }
                 }
             }
         }
+
 
         stage('Deploy via ArgoCD') {
             steps {

@@ -6,7 +6,6 @@ pipeline {
         MAVEN_HOME  = tool 'Maven'                     // Maven installation name in Jenkins Global Tool Configuration
         PATH        = "${tool 'Maven'}/bin:${env.PATH}" // Add Maven to PATH
         DOCKER_IMAGE = 'durgesh296/spring-boot-app'   // Docker image name
-        GIT_CRED = credentials('github-creds')   // your PAT token credentials
     }
 
     stages {
@@ -40,13 +39,15 @@ pipeline {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withSonarQubeEnv('SonarQubeServer') {
-                        // Pass token safely without Groovy interpolation
-                        withSonarQubeEnv('SonarQubeServer') {
-                            sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.host.url=http://host.docker.internal:9000 -Dsonar.login=$SONAR_TOKEN"
-                        }
-
+                        sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.host.url=http://host.docker.internal:9000 -Dsonar.login=${SONAR_TOKEN}"
                     }
                 }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                waitForQualityGate abortPipeline: true
             }
         }
 
@@ -73,8 +74,6 @@ pipeline {
         stage('Update Kubernetes Manifest') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-        
-                    // Set Git identity inside container
                     sh '''
                         git config user.email "devops@celetel.com"
                         git config user.name "devops491"
@@ -82,11 +81,9 @@ pipeline {
                         git add deployment.yml
                         git commit -m "Update image tag to build ${BUILD_NUMBER}" || echo "No changes to commit"
                     '''
-        
-                    // Authenticated Git Push
                     withCredentials([usernamePassword(credentialsId: 'github-creds',
-                                                      usernameVariable: 'GIT_USER',
-                                                      passwordVariable: 'GIT_TOKEN')]) {
+                                                     usernameVariable: 'GIT_USER',
+                                                     passwordVariable: 'GIT_TOKEN')]) {
                         sh '''
                             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/devops491/Jenkins-Zero-To-Hero.git HEAD:main || echo "Push failed"
                         '''
@@ -95,14 +92,21 @@ pipeline {
             }
         }
 
-
         stage('Deploy via ArgoCD') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'argocd-creds', usernameVariable: 'ARGO_USER', passwordVariable: 'ARGO_PASS')]) {
-                    sh """
-                    argocd login localhost:8082 --username $ARGO_USER --password $ARGO_PASS --insecure
-                    argocd app sync spring-boot-app
-                    """
+                    script {
+                        // Check if argocd CLI exists
+                        sh '''
+                            if ! command -v argocd &> /dev/null; then
+                                echo "ArgoCD CLI not found! Install inside Jenkins container."
+                                exit 1
+                            fi
+
+                            argocd login localhost:31145 --username ${ARGO_USER} --password ${ARGO_PASS} --insecure
+                            argocd app sync spring-boot-app
+                        '''
+                    }
                 }
             }
         }

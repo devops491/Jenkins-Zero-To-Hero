@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQubeServer'         // Jenkins SonarQube installation name
-        MAVEN_HOME = tool 'Maven'       // Maven installation in Jenkins
-        DOCKER_IMAGE = 'durgesh296/spring-boot-app' // Standardized DockerHub repo
+        SONAR_TOKEN = credentials('sonar-token')       // Jenkins credential ID for SonarQube token
+        MAVEN_HOME  = tool 'Maven'                     // Maven installation in Jenkins
+        DOCKER_IMAGE = 'durgesh296/spring-boot-app'   // Your DockerHub image
     }
 
     stages {
@@ -34,11 +34,11 @@ pipeline {
             }
         }
 
-        stage('SonarQubeServer Analysis') {
+        stage('SonarQube Analysis') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withSonarQubeEnv('SonarQubeServer') {
-                        sh "${MAVEN_HOME}/bin/mvn sonar:sonar"
+                        sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
                     }
                 }
             }
@@ -74,7 +74,7 @@ pipeline {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     sh """
-                    sed -i 's|${DOCKER_IMAGE}:.*|${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' deployment.yml
+                    sed -i 's|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' deployment.yml
                     """
                     sh "git add deployment.yml"
                     sh "git commit -m 'Update image tag to build ${env.BUILD_NUMBER}' || echo 'No changes to commit'"
@@ -99,6 +99,7 @@ pipeline {
                 sh "kubectl rollout status deployment/spring-boot-app"
             }
         }
+
     }
 
     post {

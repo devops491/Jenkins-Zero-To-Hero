@@ -4,7 +4,7 @@ pipeline {
     environment {
         SONARQUBE = 'SonarQubeServer'         // Jenkins SonarQube installation name
         MAVEN_HOME = tool 'Maven'       // Maven installation in Jenkins
-        DOCKER_IMAGE = 'abhishekf5/ultimate-cicd' // Standardized DockerHub repo
+        DOCKER_IMAGE = 'durgesh296/spring-boot-app' // Standardized DockerHub repo
     }
 
     stages {

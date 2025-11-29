@@ -3,8 +3,9 @@ pipeline {
 
     environment {
         SONAR_TOKEN = credentials('sonar-token')       // Jenkins credential ID for SonarQube token
-        MAVEN_HOME  = tool 'Maven'                     // Maven installation in Jenkins
-        DOCKER_IMAGE = 'durgesh296/spring-boot-app'   // Your DockerHub image
+        MAVEN_HOME  = tool 'Maven'                     // Maven installation name in Jenkins Global Tool Configuration
+        PATH        = "${tool 'Maven'}/bin:${env.PATH}" // Add Maven to PATH
+        DOCKER_IMAGE = 'durgesh296/spring-boot-app'   // Docker image name
     }
 
     stages {
@@ -21,7 +22,7 @@ pipeline {
         stage('Build Maven Project') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    sh "${MAVEN_HOME}/bin/mvn clean package -DskipTests"
+                    sh "mvn clean package -DskipTests"
                 }
             }
         }
@@ -29,7 +30,7 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    sh "${MAVEN_HOME}/bin/mvn test"
+                    sh "mvn test"
                 }
             }
         }
@@ -38,10 +39,17 @@ pipeline {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withSonarQubeEnv('SonarQubeServer') {
-                        sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
+                        // Pass token safely without Groovy interpolation
+                        sh "mvn sonar:sonar -Dsonar.login=$SONAR_TOKEN"
                     }
-                    waitForQualityGate abortPipeline: true
                 }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                // Wait for SonarQube Quality Gate result
+                waitForQualityGate abortPipeline: true
             }
         }
 
@@ -70,10 +78,10 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     sh """
                     sed -i 's|image:.*|image: ${DOCKER_IMAGE}:${env.BUILD_NUMBER}|' deployment.yml
+                    git add deployment.yml
+                    git commit -m 'Update image tag to build ${env.BUILD_NUMBER}' || echo 'No changes to commit'
+                    git push origin main || echo 'Push failed, skipping'
                     """
-                    sh "git add deployment.yml"
-                    sh "git commit -m 'Update image tag to build ${env.BUILD_NUMBER}' || echo 'No changes to commit'"
-                    sh "git push origin main || echo 'Push failed, skipping'"
                 }
             }
         }
